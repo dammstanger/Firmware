@@ -33,7 +33,6 @@
 
 #pragma once
 
-#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 /**
@@ -93,7 +92,6 @@
 #define PX4IO_P_CONFIG_RC_INPUT_COUNT		6	/* hardcoded max R/C input count supported */
 #define PX4IO_P_CONFIG_ADC_INPUT_COUNT		7	/* hardcoded max ADC inputs */
 #define PX4IO_P_CONFIG_RELAY_COUNT		8	/* hardcoded # of relay outputs */
-#define PX4IO_P_CONFIG_CONTROL_GROUP_COUNT	8	/**< hardcoded # of control groups*/
 
 /* dynamic status page */
 #define PX4IO_PAGE_STATUS		1
@@ -135,9 +133,6 @@
 #define PX4IO_P_STATUS_PRSSI			8	/* [2] RSSI PWM value */
 
 #define PX4IO_P_STATUS_MIXER			9	 /* mixer actuator limit flags */
-#define PX4IO_P_STATUS_MIXER_LOWER_LIMIT 		(1 << 0) /**< at least one actuator output has reached lower limit */
-#define PX4IO_P_STATUS_MIXER_UPPER_LIMIT 		(1 << 1) /**< at least one actuator output has reached upper limit */
-#define PX4IO_P_STATUS_MIXER_YAW_LIMIT 			(1 << 2) /**< yaw control is limited because it causes output clipping */
 
 /* array of post-mix actuator outputs, -10000..10000 */
 #define PX4IO_PAGE_ACTUATORS		2		/* 0..CONFIG_ACTUATOR_COUNT-1 */
@@ -238,6 +233,20 @@ enum {							/* DSM bind states */
 #define PX4IO_P_SETUP_TRIM_ROLL			16	/**< Roll trim, in actuator units */
 #define PX4IO_P_SETUP_TRIM_PITCH		17	/**< Pitch trim, in actuator units */
 #define PX4IO_P_SETUP_TRIM_YAW			18	/**< Yaw trim, in actuator units */
+#define PX4IO_P_SETUP_SCALE_ROLL		19	/**< Roll scale, in actuator units */
+#define PX4IO_P_SETUP_SCALE_PITCH		20	/**< Pitch scale, in actuator units */
+#define PX4IO_P_SETUP_SCALE_YAW			21	/**< Yaw scale, in actuator units */
+
+#define PX4IO_P_SETUP_SBUS_RATE			22	/* frame rate of SBUS1 output in Hz */
+
+#define PX4IO_P_SETUP_MOTOR_SLEW_MAX		24 	/* max motor slew rate */
+
+#define PX4IO_P_SETUP_THR_MDL_FAC 		25	/* factor for modelling static pwm output to thrust relationship */
+
+#define PX4IO_P_SETUP_THERMAL			26	/* thermal management */
+#define PX4IO_THERMAL_IGNORE			UINT16_MAX
+#define PX4IO_THERMAL_OFF			0
+#define PX4IO_THERMAL_FULL			10000
 
 /* autopilot control values, -10000..10000 */
 #define PX4IO_PAGE_CONTROLS			51	/**< actuator control groups, one after the other, 8 wide */
@@ -288,8 +297,11 @@ enum {							/* DSM bind states */
 /* PWM maximum values for certain ESCs */
 #define PX4IO_PAGE_CONTROL_MAX_PWM		107		/**< 0..CONFIG_ACTUATOR_COUNT-1 */
 
+/* PWM mtrim values for central position */
+#define PX4IO_PAGE_CONTROL_TRIM_PWM		108		/**< 0..CONFIG_ACTUATOR_COUNT-1 */
+
 /* PWM disarmed values that are active, even when SAFETY_SAFE */
-#define PX4IO_PAGE_DISARMED_PWM		108			/* 0..CONFIG_ACTUATOR_COUNT-1 */
+#define PX4IO_PAGE_DISARMED_PWM		109			/* 0..CONFIG_ACTUATOR_COUNT-1 */
 
 /**
  * As-needed mixer data upload.

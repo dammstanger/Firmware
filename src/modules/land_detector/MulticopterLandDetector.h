@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2016 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,23 +33,29 @@
 
 /**
  * @file MulticopterLandDetector.h
- * Land detection algorithm for multicopters
+ * Land detection implementation for multicopters.
  *
  * @author Johan Jansen <jnsn.johan@gmail.com>
  * @author Morten Lysgaard <morten@lysgaard.no>
+ * @author Julian Oes <julian@oes.ch>
  */
 
-#ifndef __MULTICOPTER_LAND_DETECTOR_H__
-#define __MULTICOPTER_LAND_DETECTOR_H__
+#pragma once
 
-#include "LandDetector.h"
-#include <uORB/topics/vehicle_global_position.h>
+#include <systemlib/param/param.h>
+#include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_attitude.h>
-#include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/parameter_update.h>
-#include <systemlib/param/param.h>
+#include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/control_state.h>
+#include <uORB/topics/vehicle_control_mode.h>
+
+#include "LandDetector.h"
+
+namespace land_detector
+{
 
 class MulticopterLandDetector : public LandDetector
 {
@@ -57,31 +63,15 @@ public:
 	MulticopterLandDetector();
 
 protected:
-	/**
-	* @brief  polls all subscriptions and pulls any data that has changed
-	**/
-	virtual void updateSubscriptions();
+	virtual void _initialize_topics() override;
 
-	/**
-	* @brief Runs one iteration of the land detection algorithm
-	**/
-	virtual bool update() override;
+	virtual void _update_params() override;
 
-	/**
-	* @brief Initializes the land detection algorithm
-	**/
-	virtual void initialize() override;
+	virtual void _update_topics() override;
 
-	/**
-	* @brief download and update local parameter cache
-	**/
-	virtual void updateParameterCache(const bool force);
+	virtual bool _get_landed_state() override;
 
-	/**
-	* @brief get multicopter landed state
-	**/
-	bool get_landed_state();
-
+	virtual bool _get_freefall_state() override;
 private:
 
 	/**
@@ -91,31 +81,41 @@ private:
 		param_t maxClimbRate;
 		param_t maxVelocity;
 		param_t maxRotation;
-		param_t maxThrottle;
-	}		_paramHandle;
+		param_t minThrottle;
+		param_t minManThrottle;
+		param_t freefall_acc_threshold;
+		param_t freefall_trigger_time;
+	} _paramHandle;
 
 	struct {
 		float maxClimbRate;
 		float maxVelocity;
-		float maxRotation;
-		float maxThrottle;
+		float maxRotation_rad_s;
+		float minThrottle;
+		float minManThrottle;
+		float freefall_acc_threshold;
+		float freefall_trigger_time;
 	} _params;
 
-private:
-	int _vehicleGlobalPositionSub;						/**< notification of global position */
-	int _vehicleStatusSub;
+	int _vehicleLocalPositionSub;
 	int _actuatorsSub;
 	int _armingSub;
-	int _parameterSub;
 	int _attitudeSub;
+	int _manualSub;
+	int _ctrl_state_sub;
+	int _vehicle_control_mode_sub;
 
-	struct vehicle_global_position_s	_vehicleGlobalPosition;		/**< the result from global position subscription */
-	struct vehicle_status_s 		_vehicleStatus;
+	struct vehicle_local_position_s		_vehicleLocalPosition;
 	struct actuator_controls_s		_actuators;
 	struct actuator_armed_s			_arming;
 	struct vehicle_attitude_s		_vehicleAttitude;
+	struct manual_control_setpoint_s	_manual;
+	struct control_state_s			_ctrl_state;
+	struct vehicle_control_mode_s		_ctrl_mode;
 
-	uint64_t _landTimer;							/**< timestamp in microseconds since a possible land was detected*/
+	uint64_t _min_trust_start;		///< timestamp when minimum trust was applied first
+	uint64_t _arming_time;
 };
 
-#endif //__MULTICOPTER_LAND_DETECTOR_H__
+
+} // namespace land_detector

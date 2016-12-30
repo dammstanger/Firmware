@@ -41,7 +41,6 @@
  * @author Mark Charlebois
  */
 
-#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 #include <px4_config.h>
@@ -154,7 +153,7 @@ private:
 
 	ringbuffer::RingBuffer	*_accel_reports;
 
-	struct accel_scale	_accel_scale;
+	struct accel_calibration_s	_accel_scale;
 	float			_accel_range_scale;
 	float			_accel_range_m_s2;
 	orb_advert_t		_accel_topic;
@@ -163,7 +162,7 @@ private:
 
 	ringbuffer::RingBuffer	*_gyro_reports;
 
-	struct gyro_scale	_gyro_scale;
+	struct gyro_calibration_s	_gyro_scale;
 	float			_gyro_range_scale;
 	float			_gyro_range_rad_s;
 
@@ -388,7 +387,7 @@ GYROSIM::~GYROSIM()
 int
 GYROSIM::init()
 {
-	PX4_INFO("GYROSIM::init");
+	PX4_DEBUG("init");
 	int ret = 1;
 
 	struct accel_report arp = {};
@@ -535,7 +534,7 @@ GYROSIM::transfer(uint8_t *send, uint8_t *recv, unsigned len)
 void
 GYROSIM::_set_sample_rate(unsigned desired_sample_rate_hz)
 {
-	PX4_INFO("GYROSIM::_set_sample_rate %u Hz", desired_sample_rate_hz);
+	PX4_DEBUG("_set_sample_rate %u Hz", desired_sample_rate_hz);
 
 	if (desired_sample_rate_hz == 0 ||
 	    desired_sample_rate_hz == GYRO_SAMPLERATE_DEFAULT ||
@@ -554,7 +553,7 @@ GYROSIM::_set_sample_rate(unsigned desired_sample_rate_hz)
 	write_reg(MPUREG_SMPLRT_DIV, div - 1);
 
 	unsigned sample_rate = 1000 / div;
-	PX4_INFO("GYROSIM: Changed sample rate to %uHz", sample_rate);
+	PX4_DEBUG("Changed sample rate to %uHz", sample_rate);
 	setSampleInterval(1000000 / sample_rate);
 	_gyro->setSampleInterval(1000000 / sample_rate);
 }
@@ -839,7 +838,7 @@ GYROSIM::devIOCTL(unsigned long cmd, unsigned long arg)
 
 	case ACCELIOCSSCALE: {
 			/* copy scale, but only if off by a few percent */
-			struct accel_scale *s = (struct accel_scale *) arg;
+			struct accel_calibration_s *s = (struct accel_calibration_s *) arg;
 			float sum = s->x_scale + s->y_scale + s->z_scale;
 
 			if (sum > 2.0f && sum < 4.0f) {
@@ -853,7 +852,7 @@ GYROSIM::devIOCTL(unsigned long cmd, unsigned long arg)
 
 	case ACCELIOCGSCALE:
 		/* copy scale out */
-		memcpy((struct accel_scale *) arg, &_accel_scale, sizeof(_accel_scale));
+		memcpy((struct accel_calibration_s *) arg, &_accel_scale, sizeof(_accel_scale));
 		return OK;
 
 	case ACCELIOCSRANGE:
@@ -910,12 +909,12 @@ GYROSIM::gyro_ioctl(unsigned long cmd, unsigned long arg)
 
 	case GYROIOCSSCALE:
 		/* copy scale in */
-		memcpy(&_gyro_scale, (struct gyro_scale *) arg, sizeof(_gyro_scale));
+		memcpy(&_gyro_scale, (struct gyro_calibration_s *) arg, sizeof(_gyro_scale));
 		return OK;
 
 	case GYROIOCGSCALE:
 		/* copy scale out */
-		memcpy((struct gyro_scale *) arg, &_gyro_scale, sizeof(_gyro_scale));
+		memcpy((struct gyro_calibration_s *) arg, &_gyro_scale, sizeof(_gyro_scale));
 		return OK;
 
 	case GYROIOCSRANGE:
@@ -1213,7 +1212,7 @@ int
 GYROSIM_gyro::init()
 {
 	int ret = VirtDevObj::init();
-	PX4_INFO("GYROSIM_gyro::init base class ret: %d", ret);
+	PX4_DEBUG("GYROSIM_gyro::init base class ret: %d", ret);
 	return ret;
 }
 

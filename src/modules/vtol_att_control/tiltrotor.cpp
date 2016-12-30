@@ -75,7 +75,7 @@ Tiltrotor::~Tiltrotor()
 
 }
 
-int
+void
 Tiltrotor::parameters_update()
 {
 	float v;
@@ -128,8 +128,6 @@ Tiltrotor::parameters_update()
 	if (_params_tiltrotor.airspeed_trans < _params_tiltrotor.airspeed_blend_start + 1.0f) {
 		_params_tiltrotor.airspeed_trans = _params_tiltrotor.airspeed_blend_start + 1.0f;
 	}
-
-	return OK;
 }
 
 int Tiltrotor::get_motor_off_channels(int channels)
@@ -154,7 +152,6 @@ int Tiltrotor::get_motor_off_channels(int channels)
 
 void Tiltrotor::update_vtol_state()
 {
-	parameters_update();
 
 	/* simple logic using a two way switch to perform transitions.
 	 * after flipping the switch the vehicle will start tilting rotors, picking up
@@ -208,7 +205,7 @@ void Tiltrotor::update_vtol_state()
 
 			// check if we have reached airspeed to switch to fw mode
 			// also allow switch if we are not armed for the sake of bench testing
-			if (_airspeed->indicated_airspeed_m_s >= _params_tiltrotor.airspeed_trans || !_armed->armed) {
+			if (_airspeed->indicated_airspeed_m_s >= _params_tiltrotor.airspeed_trans || can_transition_on_ground()) {
 				_vtol_schedule.flight_mode = TRANSITION_FRONT_P2;
 				_vtol_schedule.transition_start = hrt_absolute_time();
 			}
@@ -244,8 +241,11 @@ void Tiltrotor::update_vtol_state()
 
 	case TRANSITION_FRONT_P1:
 	case TRANSITION_FRONT_P2:
+		_vtol_mode = TRANSITION_TO_FW;
+		break;
+
 	case TRANSITION_BACK:
-		_vtol_mode = TRANSITION;
+		_vtol_mode = TRANSITION_TO_MC;
 		break;
 	}
 }
@@ -433,10 +433,12 @@ void Tiltrotor::set_rear_motor_state(rear_motor_state state)
 
 	int ret;
 	unsigned servo_count;
-	char *dev = PWM_OUTPUT0_DEVICE_PATH;
+	const char *dev = PWM_OUTPUT0_DEVICE_PATH;
 	int fd = px4_open(dev, 0);
 
-	if (fd < 0) {PX4_WARN("can't open %s", dev);}
+	if (fd < 0) {
+		PX4_WARN("can't open %s", dev);
+	}
 
 	ret = px4_ioctl(fd, PWM_SERVO_GET_COUNT, (unsigned long)&servo_count);
 	struct pwm_output_values pwm_max_values;

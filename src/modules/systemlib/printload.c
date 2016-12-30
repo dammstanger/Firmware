@@ -215,12 +215,25 @@ void print_load(uint64_t t, int fd, struct print_load_s *print_state)
 					(double)(task_load * 100.f),
 					(double)(sched_load * 100.f),
 					(double)(idle * 100.f));
+#if defined(BOARD_DMA_ALLOC_POOL_SIZE)
+				uint16_t dma_total;
+				uint16_t dma_used;
+				uint16_t dma_peak_used;
+
+				if (board_get_dma_usage(&dma_total, &dma_used, &dma_peak_used) >= 0) {
+					dprintf(fd, "%sDMA Memory: %d total, %d used %d peak\n",
+						clear_line,
+						dma_total,
+						dma_used,
+						dma_peak_used);
+				}
+
+#endif
 				dprintf(fd, "%sUptime: %.3fs total, %.3fs idle\n%s\n",
 					clear_line,
 					(double)curr_time_us / 1000000.d,
 					(double)idle_time_us / 1000000.d,
 					clear_line);
-
 				/* header for task list */
 				dprintf(fd, "%s%4s %*-s %8s %6s %11s %10s %-6s\n",
 					clear_line,
@@ -238,18 +251,22 @@ void print_load(uint64_t t, int fd, struct print_load_s *print_state)
 				       );
 			}
 
-			unsigned stack_size = (uintptr_t)system_load.tasks[i].tcb->adj_stack_ptr -
-					      (uintptr_t)system_load.tasks[i].tcb->stack_alloc_ptr;
-			unsigned stack_free = 0;
-			uint8_t *stack_sweeper = (uint8_t *)system_load.tasks[i].tcb->stack_alloc_ptr;
+			size_t stack_size = system_load.tasks[i].tcb->adj_stack_size;
+			ssize_t stack_free = 0;
 
-			while (stack_free < stack_size) {
-				if (*stack_sweeper++ != 0xff) {
-					break;
-				}
+#if CONFIG_ARCH_INTERRUPTSTACK > 3
 
-				stack_free++;
+			if (system_load.tasks[i].tcb->pid == 0) {
+				stack_size = (CONFIG_ARCH_INTERRUPTSTACK & ~3);
+				stack_free = up_check_intstack_remain();
+
+			} else {
+#endif
+				stack_free = up_check_tcbstack_remain(system_load.tasks[i].tcb);
+#if CONFIG_ARCH_INTERRUPTSTACK > 3
 			}
+
+#endif
 
 			dprintf(fd, "%s%4d %*-s %8lld %2d.%03d %5u/%5u %3u (%3u) ",
 				clear_line,
@@ -261,7 +278,7 @@ void print_load(uint64_t t, int fd, struct print_load_s *print_state)
 				stack_size - stack_free,
 				stack_size,
 				system_load.tasks[i].tcb->sched_priority,
-#if CONFIG_ARCH_BOARD_SIM
+#if CONFIG_ARCH_BOARD_SIM || !defined(CONFIG_PRIORITY_INHERITANCE)
 				0);
 #else
 				system_load.tasks[i].tcb->base_priority);
@@ -270,6 +287,7 @@ void print_load(uint64_t t, int fd, struct print_load_s *print_state)
 #if CONFIG_RR_INTERVAL > 0
 			/* print scheduling info with RR time slice */
 			dprintf(fd, " %6d\n", system_load.tasks[i].tcb->timeslice);
+			(void)tstate_name(TSTATE_TASK_INVALID); // Stop not used warning
 #else
 			// print task state instead
 			dprintf(fd, " %-6s\n", tstate_name(system_load.tasks[i].tcb->task_state));

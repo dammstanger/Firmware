@@ -32,8 +32,8 @@
  ****************************************************************************/
 
 /**
- * @file mavlink_orb_listener.h
- * MAVLink 1.0 uORB listener definition
+ * @file mavlink_receiver.h
+ * MAVLink receiver thread
  *
  * @author Lorenz Meier <lorenz@px4.io>
  * @author Anton Babushkin <anton@px4.io>
@@ -74,6 +74,12 @@
 #include <uORB/topics/vehicle_force_setpoint.h>
 #include <uORB/topics/time_offset.h>
 #include <uORB/topics/distance_sensor.h>
+#include <uORB/topics/follow_target.h>
+#include <uORB/topics/transponder_report.h>
+#include <uORB/topics/gps_inject_data.h>
+#include <uORB/topics/control_state.h>
+#include <uORB/topics/collision_report.h>
+
 
 #include "mavlink_ftp.h"
 
@@ -106,12 +112,11 @@ public:
 	 */
 	void		print_status();
 
-	static pthread_t receive_start(Mavlink *parent);
+	static void receive_start(pthread_t *thread, Mavlink *parent);
 
 	static void *start_helper(void *context);
 
 private:
-	Mavlink	*_mavlink;
 
 	void handle_message(mavlink_message_t *msg);
 	void handle_message_command_long(mavlink_message_t *msg);
@@ -137,8 +142,28 @@ private:
 	void handle_message_hil_gps(mavlink_message_t *msg);
 	void handle_message_hil_state_quaternion(mavlink_message_t *msg);
 	void handle_message_distance_sensor(mavlink_message_t *msg);
+	void handle_message_follow_target(mavlink_message_t *msg);
+	void handle_message_adsb_vehicle(mavlink_message_t *msg);
+	void handle_message_collision(mavlink_message_t *msg);
+	void handle_message_gps_rtcm_data(mavlink_message_t *msg);
+	void handle_message_battery_status(mavlink_message_t *msg);
+	void handle_message_serial_control(mavlink_message_t *msg);
+	void handle_message_logging_ack(mavlink_message_t *msg);
 
 	void *receive_thread(void *arg);
+
+	/**
+	 * Set the interval at which the given message stream is published.
+	 * The rate is the number of messages per second.
+	 *
+	 * @param msgId the message ID of to change the interval of
+	 * @param interval the interval in us to send the message at
+	 * @param data_rate the total link data rate in bytes per second
+	 *
+	 * @return PX4_OK on success, PX4_ERROR on fail
+	 */
+	int set_message_interval(int msgId, float interval, int data_rate = -1);
+	void get_message_interval(int msgId);
 
 	/**
 	 * Convert remote timestamp to local hrt time (usec)
@@ -149,7 +174,7 @@ private:
 	/**
 	 * Exponential moving average filter to smooth time offset
 	 */
-	void smooth_time_offset(uint64_t offset_ns);
+	void smooth_time_offset(int64_t offset_ns);
 
 	/**
 	 * Decode a switch position from a bitfield
@@ -163,6 +188,7 @@ private:
 
 	bool	evaluate_target_ok(int command, int target_system, int target_component);
 
+	Mavlink	*_mavlink;
 	mavlink_status_t status;
 	struct vehicle_local_position_s hil_local_pos;
 	struct vehicle_land_detected_s hil_land_detector;
@@ -197,6 +223,13 @@ private:
 	orb_advert_t _manual_pub;
 	orb_advert_t _land_detector_pub;
 	orb_advert_t _time_offset_pub;
+	orb_advert_t _follow_target_pub;
+	orb_advert_t _transponder_report_pub;
+	orb_advert_t _collision_report_pub;
+	orb_advert_t _control_state_pub;
+	static const int _gps_inject_data_queue_size = 6;
+	orb_advert_t _gps_inject_data_pub;
+	orb_advert_t _command_ack_pub;
 	int _control_mode_sub;
 	int _hil_frames;
 	uint64_t _old_timestamp;
@@ -210,7 +243,7 @@ private:
 	struct vehicle_attitude_setpoint_s _att_sp;
 	struct vehicle_rates_setpoint_s _rates_sp;
 	double _time_offset_avg_alpha;
-	uint64_t _time_offset;
+	int64_t _time_offset;
 	int	_orb_class_instance;
 
 	static constexpr unsigned MOM_SWITCH_COUNT = 8;
